@@ -1,5 +1,6 @@
 exp_name = 'basicvsr_plusplus_c128n25_600k_ntire_vsr'
-
+work_dir = '../../result/basicvsr++_result'
+evaluation = dict(interval=1e3, by_epoch=False)
 # model settings
 model = dict(
     type='BasicVSR',

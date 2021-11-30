@@ -45,12 +45,11 @@ class SRREDSMultipleGTDataset(BaseSRDataset):
             dict: Returned dict for LQ and GT pairs.
         """
         # generate keys
-        keys = [f'{i:03d}' for i in range(0, 270)]
-
+        keys = [f'{i:03d}' for i in range(1, 12)]
         if self.val_partition == 'REDS4':
-            val_partition = ['000', '011', '015', '020']
+            val_partition = ['001', '011']
         elif self.val_partition == 'official':
-            val_partition = [f'{i:03d}' for i in range(240, 270)]
+            val_partition = [f'{i:03d}' for i in range(9, 12)]
         else:
             raise ValueError(
                 f'Wrong validation partition {self.val_partition}.'
@@ -68,7 +67,7 @@ class SRREDSMultipleGTDataset(BaseSRDataset):
                     lq_path=self.lq_folder,
                     gt_path=self.gt_folder,
                     key=key,
-                    sequence_length=100,  # REDS has 100 frames for each clip
+                    sequence_length=7,  # REDS has 100 frames for each clip
                     num_input_frames=self.num_input_frames))
 
         return data_infos
