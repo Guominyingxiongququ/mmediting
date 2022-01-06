@@ -170,7 +170,7 @@ def test_edvr_model():
             assert isinstance(outputs['eval_result'], dict)
             assert isinstance(outputs['eval_result']['PSNR'], float)
             assert isinstance(outputs['eval_result']['SSIM'], float)
-
+            
             with pytest.raises(ValueError):
                 # iteration should be number or None
                 restorer(
@@ -179,3 +179,5 @@ def test_edvr_model():
                     save_image=True,
                     save_path=tmpdir,
                     iteration='100')
+
+test_edvr_model()

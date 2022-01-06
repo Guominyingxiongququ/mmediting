@@ -1,4 +1,5 @@
-exp_name = 'basicvsr_plusplus_c64n7_8x1_600k_reds4'
+import os
+exp_name = 'basicvsr_plusplus_c64n7_8x1_600k_crvd'
 
 # model settings
 model = dict(
@@ -16,8 +17,8 @@ train_cfg = dict(fix_iter=5000)
 test_cfg = dict(metrics=['PSNR'], crop_border=0)
 
 # dataset settings
-train_dataset_type = 'SRREDSMultipleGTDataset'
-val_dataset_type = 'SRREDSMultipleGTDataset'
+train_dataset_type = 'DNCRVDDataset'
+val_dataset_type = 'DNCRVDDataset'
 
 train_pipeline = [
     dict(type='GenerateSegmentIndices', interval_list=[1]),
@@ -73,7 +74,10 @@ demo_pipeline = [
     dict(type='FramesToTensor', keys=['lq']),
     dict(type='Collect', keys=['lq'], meta_keys=['lq_path', 'key'])
 ]
-
+mmedit_path = os.environ.get('MMEDIT_HOME')
+lq_path = os.path.join(mmedit_path, "../../data/CRVD_dataset/train")
+gt_path = os.path.join(mmedit_path, "../../data/CRVD_dataset/train_gt")
+ann_file = os.path.join(mmedit_path, "../../data/CRVD_dataset/anno_full.txt")
 data = dict(
     workers_per_gpu=1,
     train_dataloader=dict(samples_per_gpu=1, drop_last=True),  # 8 gpus
@@ -84,43 +88,37 @@ data = dict(
     train=dict(
         type='RepeatDataset',
         times=1000,
-        # dataset=dict(
-        #     type=train_dataset_type,
-        #     lq_folder='/disk1/xinyuan/REDS/train/train_sharp_bicubic/X4',
-        #     gt_folder='/disk1/xinyuan/REDS/train/train_sharp',
-        #     num_input_frames=30,
-        #     pipeline=train_pipeline,
-        #     scale=4,
-        #     val_partition='REDS4',
-        #     test_mode=False)),
         dataset=dict(
             type=train_dataset_type,
-            lq_folder='../../data/CRVD_dataset/train',
-            gt_folder='../../data/CRVD_dataset/train_gt',
+            lq_folder=lq_path,
+            gt_folder=gt_path,
+            ann_file = ann_file,
             num_input_frames=5,
             pipeline=train_pipeline,
             scale=4,
-            val_partition='REDS4',
+            val_partition='CRVD',
             test_mode=False)),
     # val
     val=dict(
         type=val_dataset_type,
-        lq_folder='../../data/CRVD_dataset/train',
-        gt_folder='../../data/CRVD_dataset/train_gt',
+        lq_folder=lq_path,
+        gt_folder=gt_path,
+        ann_file = ann_file,
         num_input_frames=5,
         pipeline=test_pipeline,
         scale=4,
-        val_partition='REDS4',
+        val_partition='CRVD',
         test_mode=True),
     # test
     test=dict(
         type=val_dataset_type,
-        lq_folder='../../data/CRVD_dataset/train',
-        gt_folder='../../data/CRVD_dataset/train_gt',
+        lq_folder=lq_path,
+        gt_folder=gt_path,
+        ann_file = ann_file,
         num_input_frames=5,
         pipeline=test_pipeline,
         scale=4,
-        val_partition='REDS4',
+        val_partition='CRVD',
         test_mode=True),
 )
 
@@ -148,7 +146,6 @@ log_config = dict(
     interval=100,
     hooks=[
         dict(type='TextLoggerHook', by_epoch=False),
-        # dict(type='TensorboardLoggerHook'),
     ])
 visual_config = None
 

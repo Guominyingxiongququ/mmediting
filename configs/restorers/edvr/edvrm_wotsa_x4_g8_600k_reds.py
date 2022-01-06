@@ -100,9 +100,9 @@ data = dict(
         times=1000,
         dataset=dict(
             type=train_dataset_type,
-            lq_folder='data/REDS/train_sharp_bicubic/X4',
-            gt_folder='data/REDS/train_sharp',
-            ann_file='data/REDS/meta_info_REDS_GT.txt',
+            lq_folder='/home/xinyuanyu/data/REDS/train_sharp_bicubic/X4',
+            gt_folder='/home/xinyuanyu/data/REDS/train_sharp',
+            ann_file='/home/xinyuanyu/data/REDS/meta_info_REDS_GT.txt',
             num_input_frames=5,
             pipeline=train_pipeline,
             scale=4,
@@ -110,9 +110,9 @@ data = dict(
             test_mode=False)),
     val=dict(
         type=val_dataset_type,
-        lq_folder='data/REDS/train_sharp_bicubic/X4',
-        gt_folder='data/REDS/train_sharp',
-        ann_file='data/REDS/meta_info_REDS_GT.txt',
+        lq_folder='/home/xinyuanyu/data/REDS/train_sharp_bicubic/X4',
+        gt_folder='/home/xinyuanyu/data/REDS/train_sharp',
+        ann_file='/home/xinyuanyu/data/REDS/meta_info_REDS_GT.txt',
         num_input_frames=5,
         pipeline=test_pipeline,
         scale=4,
@@ -120,9 +120,9 @@ data = dict(
         test_mode=True),
     test=dict(
         type=val_dataset_type,
-        lq_folder='data/REDS/train_sharp_bicubic/X4',
-        gt_folder='data/REDS/train_sharp',
-        ann_file='data/REDS/meta_info_REDS_GT.txt',
+        lq_folder='/home/xinyuanyu/data/REDS/train_sharp_bicubic/X4',
+        gt_folder='/home/xinyuanyu/data/REDS/train_sharp',
+        ann_file='/home/xinyuanyu/data/REDS/meta_info_REDS_GT.txt',
         num_input_frames=5,
         pipeline=test_pipeline,
         scale=4,
@@ -144,7 +144,7 @@ lr_config = dict(
 
 checkpoint_config = dict(interval=5000, save_optimizer=True, by_epoch=False)
 # remove gpu_collect=True in non distributed training
-evaluation = dict(interval=50000, save_image=False, gpu_collect=True)
+evaluation = dict(interval=1000, save_image=False)
 log_config = dict(
     interval=100,
     hooks=[
@@ -152,12 +152,21 @@ log_config = dict(
         dict(type='TensorboardLoggerHook'),
         # dict(type='PaviLoggerHook', init_kwargs=dict(project='mmedit-sr'))
     ])
-visual_config = None
+visual_config = dict(  ## config to register visualization hook
+    type='VisualizationHook',
+    output_dir='visual',
+    interval=100,
+    rerange=False,
+    bgr2rgb=False,
+    res_name_list=[
+        'gt'
+    ],
+)  ## The logger used to visualize the training process.
 
 # runtime settings
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = f'./work_dirs/{exp_name}'
+work_dir = f'/home/xinyuanyu/result/{exp_name}'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

@@ -101,6 +101,7 @@ def restoration_video_inference(model,
     # compose the pipeline
     test_pipeline = Compose(test_pipeline)
     data = test_pipeline(data)
+    # add a formula here
     data = scatter(collate([data], samples_per_gpu=1), [device])[0]['lq']
     # forward the model
     with torch.no_grad():

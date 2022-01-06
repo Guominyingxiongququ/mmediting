@@ -25,6 +25,8 @@ from .sr_test_multiple_gt_dataset import SRTestMultipleGTDataset
 from .sr_vid4_dataset import SRVid4Dataset
 from .sr_vimeo90k_dataset import SRVimeo90KDataset
 from .sr_vimeo90k_multiple_gt_dataset import SRVimeo90KMultipleGTDataset
+from .dn_folder_video_dataset import DNFolderVideoDataset
+from .dn_crvd_dataset import DNCRVDDataset
 
 __all__ = [
     'DATASETS', 'PIPELINES', 'build_dataset', 'build_dataloader',
@@ -35,5 +37,5 @@ __all__ = [
     'GenerationUnpairedDataset', 'SRVid4Dataset', 'SRFolderGTDataset',
     'SRREDSMultipleGTDataset', 'SRVimeo90KMultipleGTDataset',
     'SRTestMultipleGTDataset', 'SRFolderRefDataset', 'SRFacialLandmarkDataset',
-    'SRFolderMultipleGTDataset', 'SRFolderVideoDataset'
+    'SRFolderMultipleGTDataset', 'SRFolderVideoDataset', 'DNFolderVideoDataset'
 ]

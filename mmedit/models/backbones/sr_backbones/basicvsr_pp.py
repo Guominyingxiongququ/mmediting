@@ -311,7 +311,7 @@ class BasicVSRPlusPlus(nn.Module):
 
         # whether to cache the features in CPU
         self.cpu_cache = True if t > self.cpu_cache_length else False
-
+        # pay attention to this part
         if self.is_low_res_input:
             lqs_downsample = lqs.clone()
         else:
