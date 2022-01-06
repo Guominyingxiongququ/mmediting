@@ -104,6 +104,7 @@ class EDVR(BasicRestorer):
         Returns:
             dict: Output results.
         """
+        print("forward test")
         output = self.generator(lq)
         if self.test_cfg is not None and self.test_cfg.get('metrics', None):
             assert gt is not None, (
@@ -115,6 +116,7 @@ class EDVR(BasicRestorer):
                 results['gt'] = gt.cpu()
 
         # save image
+        save_image=True
         if save_image:
             gt_path = meta[0]['gt_path'][0]
             folder_name = meta[0]['key'].split('/')[0]
@@ -129,6 +131,7 @@ class EDVR(BasicRestorer):
             else:
                 raise ValueError('iteration should be number or None, '
                                  f'but got {type(iteration)}')
+            print(save_path)
             mmcv.imwrite(tensor2img(output), save_path)
 
         return results
