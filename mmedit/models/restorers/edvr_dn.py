@@ -96,7 +96,7 @@ class EDVRDN(BasicRestorer):
         h_index = 1
         while (patch_h*h_index-patch_h_overlap*(h_index-1)) < H:
             test_horizontal_result = np.zeros((input_data.shape[0],
-            3, patch_h, W))
+                3, patch_h, W))
             h_begin = patch_h*(h_index-1)-patch_h_overlap*(h_index-1)
             h_end = patch_h*h_index-patch_h_overlap*(h_index-1)
             w_index = 1
@@ -107,7 +107,7 @@ class EDVRDN(BasicRestorer):
                 test_patch = input_data[:, :, :, h_begin:h_end, w_begin:w_end]
                 output_patch = self.generator(test_patch)
                 output_patch = \
-                output_patch.cpu().detach().numpy().astype(np.float32)
+                    output_patch.cpu().detach().numpy().astype(np.float32)
                 if w_index == 1:
                     test_horizontal_result[:, :, :, w_begin:w_end] = \
                         output_patch
@@ -117,29 +117,34 @@ class EDVRDN(BasicRestorer):
                             test_horizontal_result[:, :, :, w_begin + i]\
                             * (patch_w_overlap-1-i)/(patch_w_overlap-1)\
                             + output_patch[:, :, :, i] * i/(patch_w_overlap-1)
-                    test_horizontal_result[:, :, :, w_begin+patch_w_overlap:w_end] = \
-                    output_patch[:, :, :, patch_w_overlap:]
+                    cur_begin = w_begin+patch_w_overlap
+                    test_horizontal_result[:, :, :, cur_begin:w_end] = \
+                        output_patch[:, :, :, patch_w_overlap:]
                 w_index += 1
-            test_patch = input_data[:, :, :, h_begin:h_end,-patch_w:] 
+            test_patch = input_data[:, :, :, h_begin:h_end, -patch_w:]
             output_patch = self.generator(test_patch)
             output_patch = \
-            output_patch.cpu().detach().numpy().astype(np.float32)
-            last_range = w_end-(W-patch_w)       
+                output_patch.cpu().detach().numpy().astype(np.float32)
+            last_range = w_end-(W-patch_w)
             for i in range(last_range):
                 test_horizontal_result[:, :, :, W-patch_w+i] = \
-                test_horizontal_result[:, :, :, W-patch_w+i]\
-                *(last_range-1-i)/(last_range-1)\
-                +output_patch[:, :, :, i]*i/(last_range-1)
-            test_horizontal_result[:, :, :, w_end:] = output_patch[:, :, :, last_range:]       
+                    test_horizontal_result[:, :, :, W-patch_w+i]\
+                    *(last_range-1-i)/(last_range-1)\
+                    +output_patch[:, :, :, i]*i/(last_range-1)
+            test_horizontal_result[:, :, :, w_end:] = \
+                output_patch[:, :, :, last_range:]       
 
             if h_index == 1:
                 test_result[:, :, h_begin:h_end, :] = test_horizontal_result
             else:
                 for i in range(patch_h_overlap):
                     test_result[:, :, h_begin+i, :] = \
-                    test_result[:, :, h_begin+i, :]*(patch_h_overlap-1-i)\
-                    /(patch_h_overlap-1)+test_horizontal_result[:, :, i, :] * i/(patch_h_overlap-1)
-                test_result[:, :, h_begin+patch_h_overlap:h_end, :] = test_horizontal_result[:, :, patch_h_overlap:, :]
+                        test_result[:, :, h_begin+i, :]*(patch_h_overlap-1-i)\
+                        /(patch_h_overlap-1)+\
+                        test_horizontal_result[:, :, i, :]\
+                        * i/(patch_h_overlap-1)
+                test_result[:, :, h_begin+patch_h_overlap:h_end, :] = \
+                    test_horizontal_result[:, :, patch_h_overlap:, :]
             h_index += 1
 
         test_horizontal_result = np.zeros((input_data.shape[0], 3, patch_h, W))
@@ -156,9 +161,9 @@ class EDVRDN(BasicRestorer):
             else:
                 for i in range(patch_w_overlap):
                     test_horizontal_result[:, :, :, w_begin+i] = \
-                    test_horizontal_result[:, :, :, w_begin+i]*\
-                    (patch_w_overlap-1-i)/(patch_w_overlap-1)\
-                    +output_patch[:, :, :, i]*i/(patch_w_overlap-1)
+                        test_horizontal_result[:, :, :, w_begin+i]*\
+                        (patch_w_overlap-1-i)/(patch_w_overlap-1)\
+                        +output_patch[:, :, :, i]*i/(patch_w_overlap-1)
                 test_horizontal_result[:, :, :, w_begin+patch_w_overlap:w_end] = output_patch[:, :, :, patch_w_overlap:]  
             w_index += 1
         test_patch = input_data[:, :, :,  -patch_h:, -patch_w:]         
@@ -169,7 +174,7 @@ class EDVRDN(BasicRestorer):
             test_horizontal_result[:, :, :, W-patch_w+i] = \
                 test_horizontal_result[:, :, :, W-patch_w+i]*(last_range-1-i)\
                 /(last_range-1)+output_patch[:, :, :, i]*i/(last_range-1)
-        test_horizontal_result[:, :, :, w_end:] = output_patch[:, :, :, last_range:] 
+        test_horizontal_result[:, :, :, w_end:] = output_patch[:, :, :, last_range:]
 
         last_last_range = h_end-(H-patch_h)
         for i in range(last_last_range):
@@ -203,7 +208,7 @@ class EDVRDN(BasicRestorer):
         patch_w = 256
         patch_h_overlap = 64
         patch_w_overlap = 64
-        output = self.test_big_size_raw(lq, patch_h, patch_w, \
+        output = self.test_big_size_raw(lq, patch_h, patch_w,
             patch_h_overlap, patch_w_overlap)
         # lq shape n, t, c, h, w
         # gt shape n, c, h, w
@@ -218,14 +223,14 @@ class EDVRDN(BasicRestorer):
                 results['gt'] = gt.cpu()
 
         # save image
-        save_image=True
+        save_image = True
         if save_image:
             gt_path = meta[0]['gt_path'][0]
             folder_name = meta[0]['key'].split('/')[0]
             isp_name = meta[0]['key'].split('/')[1]
             frame_name = osp.splitext(osp.basename(gt_path))[0]
             if isinstance(iteration, numbers.Number):
-                save_path = osp.join(save_path, folder_name, isp_name, 
+                save_path = osp.join(save_path, folder_name, isp_name,
                                      f'{frame_name}-{iteration + 1:06d}.png')
             elif iteration is None:
                 save_path = osp.join(save_path, folder_name,
