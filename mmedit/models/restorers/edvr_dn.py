@@ -163,10 +163,12 @@ class EDVRDN(BasicRestorer):
                 test_horizontal_result[:, :, :, w_begin:w_end] = output_patch
             else:
                 for i in range(patch_w_overlap):
+                    term1 = test_horizontal_result[:, :, :, w_begin+i]
+                    rate1 = (patch_w_overlap-1-i)/(patch_w_overlap-1)
+                    term2 = output_patch[:, :, :, i]
+                    rate2 = i/(patch_w_overlap-1)
                     test_horizontal_result[:, :, :, w_begin+i] = \
-                        test_horizontal_result[:, :, :, w_begin+i]\
-                         * (patch_w_overlap-1-i)/(patch_w_overlap-1)\
-                         + output_patch[:, :, :, i] * i/(patch_w_overlap-1)
+                        term1*rate1+term2*rate2
                 cur_begin = w_begin+patch_w_overlap
                 test_horizontal_result[:, :, :, cur_begin:w_end] = \
                     output_patch[:, :, :, patch_w_overlap:]
@@ -184,10 +186,12 @@ class EDVRDN(BasicRestorer):
 
         last_last_range = h_end-(H-patch_h)
         for i in range(last_last_range):
+            term1 = test_result[:, :, H-patch_w+i, :]
+            rate1 = (last_last_range-1-i)/(last_last_range-1)
+            term2 = test_horizontal_result[:, :, i, :]
+            rate2 = i/(last_last_range-1) 
             test_result[:, :, H-patch_w+i, :] = \
-                test_result[:, :, H-patch_w+i, :]*(last_last_range-1-i)\
-                 / (last_last_range-1)\
-                 + test_horizontal_result[:, :, i, :]*i/(last_last_range-1)
+                term1*rate1+term2*rate2
         cur_result = test_horizontal_result[:, :, last_last_range:, :]
         test_result[:, :, h_end:, :] = cur_result
         return test_result
@@ -217,7 +221,7 @@ class EDVRDN(BasicRestorer):
         patch_h_overlap = 64
         patch_w_overlap = 64
         output = self.test_big_size_raw(lq, patch_h, patch_w,
-                                       patch_h_overlap, patch_w_overlap)
+                                        patch_h_overlap, patch_w_overlap)
         # lq shape n, t, c, h, w
         # gt shape n, c, h, w
         print(self.test_cfg)
