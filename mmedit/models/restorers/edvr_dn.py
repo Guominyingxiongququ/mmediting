@@ -96,7 +96,7 @@ class EDVRDN(BasicRestorer):
         h_index = 1
         while (patch_h*h_index-patch_h_overlap*(h_index-1)) < H:
             test_horizontal_result = np.zeros(input_data.shape[0],
-                                             3, patch_h, W)
+                                              3, patch_h, W)
             h_begin = patch_h*(h_index-1)-patch_h_overlap*(h_index-1)
             h_end = patch_h*h_index-patch_h_overlap*(h_index-1)
             w_index = 1
@@ -128,8 +128,8 @@ class EDVRDN(BasicRestorer):
             last_range = w_end-(W-patch_w)
             for i in range(last_range):
                 term1 = test_horizontal_result[:, :, :, W-patch_w+i]
-                rate1 = (last_range-1-i)/(last_range-1) 
-                term2 = output_patch[:, :, :, i] 
+                rate1 = (last_range-1-i)/(last_range-1)
+                term2 = output_patch[:, :, :, i]
                 rate2 = i/(last_range-1)
                 test_horizontal_result[:, :, :, W-patch_w+i] = \
                     term1*rate1+term2*rate2
