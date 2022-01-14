@@ -10,6 +10,7 @@ from .base_dataset import BaseDataset
 IMG_EXTENSIONS = ('.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.ppm',
                   '.PPM', '.bmp', '.BMP')
 
+
 class BaseDNDataset(BaseDataset):
     """Base class for denoise datasets.
     """

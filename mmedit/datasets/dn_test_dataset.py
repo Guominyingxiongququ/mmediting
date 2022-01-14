@@ -65,7 +65,8 @@ class DNTestDataset(BaseSRDataset):
             keys = [v.strip().split('.')[0] for v in fin]
 
         if self.val_partition == 'CRVD':
-            val_partition = ['scene7', 'scene8', 'scene9', 'scene10', 'scene11']
+            val_partition = \
+                ['scene7', 'scene8', 'scene9', 'scene10', 'scene11']
         elif self.val_partition == 'official':
             val_partition = [f'{v:03d}' for v in range(240, 270)]
         else:

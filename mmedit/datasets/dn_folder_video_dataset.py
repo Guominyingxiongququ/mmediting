@@ -8,6 +8,7 @@ import numpy as np
 from .base_dn_dataset import BaseDNDataset
 from .registry import DATASETS
 
+
 @DATASETS.register_module()
 class DNFolderVideoDataset(BaseDNDataset):
     """General dataset for video DN, used for sliding-window framework.

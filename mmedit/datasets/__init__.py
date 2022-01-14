@@ -32,10 +32,12 @@ __all__ = [
     'DATASETS', 'PIPELINES', 'build_dataset', 'build_dataloader',
     'BaseDataset', 'BaseMattingDataset', 'ImgInpaintingDataset',
     'AdobeComp1kDataset', 'DNTestDataset', 'SRLmdbDataset', 'SRFolderDataset',
-    'SRAnnotationDataset', 'BaseSRDataset', 'BaseDNDataset', 'RepeatDataset', 
-    'SRREDSDataset', 'SRVimeo90KDataset', 'BaseGenerationDataset', 
+    'SRAnnotationDataset', 'BaseSRDataset', 'BaseDNDataset', 'RepeatDataset',
+    'SRREDSDataset', 'SRVimeo90KDataset', 'BaseGenerationDataset',
     'GenerationPairedDataset', 'GenerationUnpairedDataset', 'SRVid4Dataset',
-    'SRFolderGTDataset', 'SRREDSMultipleGTDataset', 'SRVimeo90KMultipleGTDataset',
-    'SRTestMultipleGTDataset', 'SRFolderRefDataset', 'SRFacialLandmarkDataset',
-    'SRFolderMultipleGTDataset', 'SRFolderVideoDataset', 'DNFolderVideoDataset'
+    'SRFolderGTDataset', 'SRREDSMultipleGTDataset',
+    'SRVimeo90KMultipleGTDataset', 'SRTestMultipleGTDataset',
+    'SRFolderRefDataset', 'SRFacialLandmarkDataset',
+    'SRFolderMultipleGTDataset', 'SRFolderVideoDataset',
+    'DNFolderVideoDataset'
 ]

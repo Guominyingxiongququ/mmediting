@@ -150,4 +150,5 @@ def test_basicvsr_model():
                 save_path=tmpdir,
                 iteration='100')
 
+
 test_basicvsr_model()
