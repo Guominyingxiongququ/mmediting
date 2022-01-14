@@ -979,12 +979,12 @@ class GenerateDNFrameIndices:
         for v in neighbor_list:
             rand_int = np.random.randint(0, 10)
             lq_frame = osp.join(lq_path_root, clip_name, iso_name,
-                f'frame{v}_noisy{rand_int}.png')
+                                f'frame{v}_noisy{rand_int}.png')
             lq_path.append(lq_frame)
 
         gt_frame_name = f'frame{center_frame_idx}_clean_and_slightly_denoised'
         gt_path = [osp.join(gt_path_root, clip_name, iso_name,
-                  f'{gt_frame_name}.png')]
+                   f'{gt_frame_name}.png')]
         results['lq_path'] = lq_path
         results['gt_path'] = gt_path
         results['interval'] = interval
