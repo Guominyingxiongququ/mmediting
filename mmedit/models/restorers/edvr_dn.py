@@ -95,8 +95,8 @@ class EDVRDN(BasicRestorer):
         test_result = np.zeros((input_data.shape[0], 3, H, W))
         h_index = 1
         while (patch_h*h_index-patch_h_overlap*(h_index-1)) < H:
-            test_horizontal_result = np.zeros((input_data.shape[0], \
-                3, patch_h, W))
+            test_horizontal_result = np.zeros(input_data.shape[0],
+                                             3, patch_h, W)
             h_begin = patch_h*(h_index-1)-patch_h_overlap*(h_index-1)
             h_end = patch_h*h_index-patch_h_overlap*(h_index-1)
             w_index = 1
@@ -127,10 +127,12 @@ class EDVRDN(BasicRestorer):
                 output_patch.cpu().detach().numpy().astype(np.float32)
             last_range = w_end-(W-patch_w)
             for i in range(last_range):
+                term1 = test_horizontal_result[:, :, :, W-patch_w+i]
+                rate1 = (last_range-1-i)/(last_range-1) 
+                term2 = output_patch[:, :, :, i] 
+                rate2 = i/(last_range-1)
                 test_horizontal_result[:, :, :, W-patch_w+i] = \
-                    test_horizontal_result[:, :, :, W-patch_w+i]\
-                     * (last_range-1-i)/(last_range-1)\
-                     + output_patch[:, :, :, i]*i/(last_range-1)
+                    term1*rate1+term2*rate2
             test_horizontal_result[:, :, :, w_end:] = \
                 output_patch[:, :, :, last_range:]
 
@@ -138,11 +140,12 @@ class EDVRDN(BasicRestorer):
                 test_result[:, :, h_begin:h_end, :] = test_horizontal_result
             else:
                 for i in range(patch_h_overlap):
+                    term1 = test_result[:, :, h_begin+i, :]
+                    rate1 = (patch_h_overlap-1-i)/(patch_h_overlap-1)
+                    term2 = test_horizontal_result[:, :, i, :]
+                    rate2 = i/(patch_h_overlap-1)
                     test_result[:, :, h_begin+i, :] = \
-                        test_result[:, :, h_begin+i, :]*(patch_h_overlap-1-i)\
-                         / (patch_h_overlap-1)\
-                         + test_horizontal_result[:, :, i, :]\
-                         * i/(patch_h_overlap-1)
+                        term1 * rate1 + term2 * rate2
                 test_result[:, :, h_begin+patch_h_overlap:h_end, :] = \
                     test_horizontal_result[:, :, patch_h_overlap:, :]
             h_index += 1
@@ -185,8 +188,8 @@ class EDVRDN(BasicRestorer):
                 test_result[:, :, H-patch_w+i, :]*(last_last_range-1-i)\
                  / (last_last_range-1)\
                  + test_horizontal_result[:, :, i, :]*i/(last_last_range-1)
-        test_result[:, :, h_end:, :] = \
-                test_horizontal_result[:, :, last_last_range:, :]
+        cur_result = test_horizontal_result[:, :, last_last_range:, :]
+        test_result[:, :, h_end:, :] = cur_result
         return test_result
 
     def forward_test(self,
@@ -214,7 +217,7 @@ class EDVRDN(BasicRestorer):
         patch_h_overlap = 64
         patch_w_overlap = 64
         output = self.test_big_size_raw(lq, patch_h, patch_w,
-            patch_h_overlap, patch_w_overlap)
+                                       patch_h_overlap, patch_w_overlap)
         # lq shape n, t, c, h, w
         # gt shape n, c, h, w
         print(self.test_cfg)
