@@ -178,9 +178,12 @@ class EDVRDN(BasicRestorer):
         output_patch = output_patch.cpu().detach().numpy().astype(np.float32)
         last_range = w_end-(W-patch_w)
         for i in range(last_range):
+            term1 = test_horizontal_result[:, :, :, W-patch_w+i]
+            rate1 = (last_range-1-i)/(last_range-1)
+            term2 = output_patch[:, :, :, i]
+            rate2 = i/(last_range-1)
             test_horizontal_result[:, :, :, W-patch_w+i] = \
-                test_horizontal_result[:, :, :, W-patch_w+i]*(last_range-1-i)\
-                 / (last_range-1)+output_patch[:, :, :, i]*i/(last_range-1)
+                term1*rate1+term2*rate2
         test_horizontal_result[:, :, :, w_end:] = \
             output_patch[:, :, :, last_range:]
 
@@ -189,7 +192,7 @@ class EDVRDN(BasicRestorer):
             term1 = test_result[:, :, H-patch_w+i, :]
             rate1 = (last_last_range-1-i)/(last_last_range-1)
             term2 = test_horizontal_result[:, :, i, :]
-            rate2 = i/(last_last_range-1) 
+            rate2 = i/(last_last_range-1)∂
             test_result[:, :, H-patch_w+i, :] = \
                 term1*rate1+term2*rate2
         cur_result = test_horizontal_result[:, :, last_last_range:, :]

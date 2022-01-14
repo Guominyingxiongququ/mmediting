@@ -180,5 +180,5 @@ def test_edvr_model():
                     save_path=tmpdir,
                     iteration='100')
 
-        
+
 test_edvr_model()
