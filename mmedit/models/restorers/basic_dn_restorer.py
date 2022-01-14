@@ -156,11 +156,11 @@ class BasicDNRestorer(BaseModel):
         if save_image:
             lq_path = meta[0]['lq_path']
             folder_name = lq_path.split("/")[-2]
-            isp_name = lq_path.split("/")[-3]
+            isp = lq_path.split("/")[-3]
             # folder_name = osp.splitext(osp.basename(lq_path))[0]
             if isinstance(iteration, numbers.Number):
                 save_path = osp.join(save_path, folder_name,
-                            f'{isp_name}-{folder_name}-{iteration + 1:06d}.png')
+                            f'{isp}-{folder_name}-{iteration + 1:06d}.png')
             elif iteration is None:
                 save_path = osp.join(save_path, f'{folder_name}.png')
             else:

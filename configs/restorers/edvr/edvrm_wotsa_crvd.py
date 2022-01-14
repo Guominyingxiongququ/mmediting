@@ -102,9 +102,8 @@ data = dict(
             type=train_dataset_type,
             lq_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_noisy',
             gt_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt',
-            ann_file=
-            '/home/xinyuanyu/data/CRVD_dataset/'
-            +'indoor_rgb_gt/meta_info_CRVD_GT.txt',
+            ann_file='/home/xinyuanyu/data/CRVD_dataset/'
+                      + 'indoor_rgb_gt/meta_info_CRVD_GT.txt',
             num_input_frames=5,
             pipeline=train_pipeline,
             scale=1,
@@ -121,13 +120,12 @@ data = dict(
         scale=1,
         val_partition='CRVD',
         test_mode=True),
-    CRVD_Root = '/home/xinyuanyu/data/CRVD_dataset'
     test=dict(
         type=val_dataset_type,
         lq_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_noisy',
         gt_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt',
-        ann_file=
-        CRVD_Root+'/indoor_rgb_gt/meta_info_CRVD_GT.txt',
+        ann_file='/home/xinyuanyu/data/CRVD_dataset'
+        +'/indoor_rgb_gt/meta_info_CRVD_GT.txt',
         num_input_frames=5,
         pipeline=test_pipeline,
         scale=1,

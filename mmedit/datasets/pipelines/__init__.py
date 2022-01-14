@@ -35,7 +35,7 @@ __all__ = [
     'Crop', 'CropAroundCenter', 'CropAroundUnknown', 'ModCrop',
     'PairedRandomCrop', 'Normalize', 'RescaleToZeroOne', 'GenerateTrimap',
     'MergeFgAndBg', 'CompositeFg', 'TemporalReverse', 'LoadImageFromFileList',
-    'GenerateFrameIndices', 'GenerateDNFrameIndices', 
+    'GenerateFrameIndices', 'GenerateDNFrameIndices',
     'GenerateFrameIndiceswithPadding', 'FixedCrop',
     'LoadPairedImageFromFile', 'GenerateSoftSeg', 'GenerateSeg', 'PerturbBg',
     'CropAroundFg', 'GetSpatialDiscountMask', 'RandomDownSampling',
