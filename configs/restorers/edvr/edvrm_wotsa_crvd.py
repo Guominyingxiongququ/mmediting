@@ -102,7 +102,8 @@ data = dict(
             type=train_dataset_type,
             lq_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_noisy',
             gt_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt',
-            ann_file='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt/meta_info_CRVD_GT.txt',
+            ann_file= \
+            '/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt/meta_info_CRVD_GT.txt',
             num_input_frames=5,
             pipeline=train_pipeline,
             scale=1,
@@ -112,7 +113,8 @@ data = dict(
         type=val_dataset_type,
         lq_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_noisy',
         gt_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt',
-        ann_file='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt/meta_info_CRVD_GT.txt',
+        ann_file= \
+        '/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt/meta_info_CRVD_GT.txt',
         num_input_frames=5,
         pipeline=test_pipeline,
         scale=1,
@@ -122,7 +124,8 @@ data = dict(
         type=val_dataset_type,
         lq_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_noisy',
         gt_folder='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt',
-        ann_file='/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt/meta_info_CRVD_GT.txt',
+        ann_file= \
+        '/home/xinyuanyu/data/CRVD_dataset/indoor_rgb_gt/meta_info_CRVD_GT.txt',
         num_input_frames=5,
         pipeline=test_pipeline,
         scale=1,
@@ -152,7 +155,7 @@ log_config = dict(
         dict(type='TensorboardLoggerHook'),
         # dict(type='PaviLoggerHook', init_kwargs=dict(project='mmedit-sr'))
     ])
-visual_config = dict(  ## config to register visualization hook
+visual_config = dict(  # config to register visualization hook
     type='VisualizationHook',
     output_dir='visual',
     interval=100,
@@ -161,7 +164,7 @@ visual_config = dict(  ## config to register visualization hook
     res_name_list=[
         'gt'
     ],
-)  ## The logger used to visualize the training process.
+)  # The logger used to visualize the training process.
 
 # runtime settings
 dist_params = dict(backend='nccl')

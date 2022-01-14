@@ -5,7 +5,7 @@ from .registry import DATASETS
 
 @DATASETS.register_module()
 class DNTestDataset(BaseSRDataset):
-    """REDS dataset for video super resolution.
+    """CRVD dataset for video super resolution.
 
     The dataset loads several LQ (Low-Quality) frames and a center GT
     (Ground-Truth) frame. Then it applies specified transforms and finally

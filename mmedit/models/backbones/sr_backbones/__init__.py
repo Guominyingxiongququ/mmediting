@@ -18,7 +18,8 @@ from .tof import TOFlow
 from .ttsr_net import TTSRNet
 
 __all__ = [
-    'MSRResNet', 'RRDBNet', 'EDSR', 'EDVRNet', 'EDVRDNNet', 'TOFlow', 'SRCNN', 'DICNet',
-    'BasicVSRNet', 'IconVSR', 'RDN', 'TTSRNet', 'GLEANStyleGANv2', 'TDANNet',
-    'LIIFEDSR', 'LIIFRDN', 'BasicVSRPlusPlus', 'RealBasicVSRNet'
+    'MSRResNet', 'RRDBNet', 'EDSR', 'EDVRNet', 'EDVRDNNet', 'TOFlow',
+    'SRCNN', 'DICNet', 'BasicVSRNet', 'IconVSR', 'RDN', 'TTSRNet',
+    'GLEANStyleGANv2', 'TDANNet', 'LIIFEDSR', 'LIIFRDN',
+    'BasicVSRPlusPlus', 'RealBasicVSRNet'
 ]

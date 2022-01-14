@@ -14,6 +14,6 @@ from .tdan import TDAN
 from .ttsr import TTSR
 
 __all__ = [
-    'BasicRestorer', 'SRGAN', 'ESRGAN', 'EDVR', 'EDVRDN', 'LIIF', 'BasicVSR', 'TTSR',
-    'GLEAN', 'TDAN', 'DIC', 'RealESRGAN', 'RealBasicVSR'
+    'BasicRestorer', 'SRGAN', 'ESRGAN', 'EDVR', 'EDVRDN', 'LIIF', 'BasicVSR',
+    'TTSR', 'GLEAN', 'TDAN', 'DIC', 'RealESRGAN', 'RealBasicVSR'
 ]

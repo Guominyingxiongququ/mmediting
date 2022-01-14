@@ -115,7 +115,7 @@ class EDVR(BasicRestorer):
                 results['gt'] = gt.cpu()
 
         # save image
-        save_image=True
+        save_image = True
         if save_image:
             gt_path = meta[0]['gt_path'][0]
             folder_name = meta[0]['key'].split('/')[0]

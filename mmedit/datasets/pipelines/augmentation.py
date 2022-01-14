@@ -919,6 +919,7 @@ class TemporalReverse:
         repr_str += f'(keys={self.keys}, reverse_ratio={self.reverse_ratio})'
         return repr_str
 
+
 @PIPELINES.register_module()
 class GenerateDNFrameIndices:
     """Generate frame index for CRVD datasets. It also performs
@@ -950,7 +951,8 @@ class GenerateDNFrameIndices:
             dict: A dict containing the processed data and information.
         """
         clip_name, iso_name, frame_name = results['key'].split(
-            '/')  # key example: scene2/ISO3200/frame2_clean_and_slightly_denoised
+            '/')
+        # key example: scene2/ISO3200/frame2_clean_and_slightly_denoised
         frame_idx_str = frame_name.split("_")[0][5:]
         center_frame_idx = int(frame_idx_str)
         num_half_frames = results['num_input_frames'] // 2
@@ -966,22 +968,23 @@ class GenerateDNFrameIndices:
             center_frame_idx = np.random.randint(1, frames_per_clip + 1)
             start_frame_idx = center_frame_idx - num_half_frames * interval
             end_frame_idx = center_frame_idx + num_half_frames * interval
-        #frame_name = f'{center_frame_idx:08d}'
+        # frame_name = f'{center_frame_idx:08d}'
 
         neighbor_list = list(
             range(center_frame_idx - num_half_frames * interval,
                   center_frame_idx + num_half_frames * interval + 1, interval))
-        
         lq_path_root = results['lq_path']
         gt_path_root = results['gt_path']
         lq_path = []
         for v in neighbor_list:
             rand_int = np.random.randint(0, 10)
-            lq_frame = osp.join(lq_path_root, clip_name, iso_name, f'frame{v}_noisy{rand_int}.png')
+            lq_frame = osp.join(lq_path_root, clip_name, iso_name, \
+                f'frame{v}_noisy{rand_int}.png')
             lq_path.append(lq_frame)
 
         gt_frame_name = f'frame{center_frame_idx}_clean_and_slightly_denoised'
-        gt_path = [osp.join(gt_path_root, clip_name, iso_name, f'{gt_frame_name}.png')]
+        gt_path = [osp.join(gt_path_root, clip_name, iso_name, \
+                    f'{gt_frame_name}.png')]
         results['lq_path'] = lq_path
         results['gt_path'] = gt_path
         results['interval'] = interval
@@ -993,7 +996,8 @@ class GenerateDNFrameIndices:
         repr_str += (f'(interval_list={self.interval_list}, '
                      f'frames_per_clip={self.frames_per_clip})')
         return repr_str
-            
+
+
 @PIPELINES.register_module()
 class GenerateSegmentIndices:
     """Generate frame indices for a segment. It also performs temporal
