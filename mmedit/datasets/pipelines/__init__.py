@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .augmentation import (BinarizeImage, CopyValues, Flip,
                            GenerateFrameIndices,
+                           GenerateDNFrameIndices,
                            GenerateFrameIndiceswithPadding,
                            GenerateSegmentIndices, MirrorSequence, Pad,
                            Quantize, RandomAffine, RandomJitter,
@@ -34,7 +35,7 @@ __all__ = [
     'Crop', 'CropAroundCenter', 'CropAroundUnknown', 'ModCrop',
     'PairedRandomCrop', 'Normalize', 'RescaleToZeroOne', 'GenerateTrimap',
     'MergeFgAndBg', 'CompositeFg', 'TemporalReverse', 'LoadImageFromFileList',
-    'GenerateFrameIndices', 'GenerateFrameIndiceswithPadding', 'FixedCrop',
+    'GenerateFrameIndices', 'GenerateDNFrameIndices', 'GenerateFrameIndiceswithPadding', 'FixedCrop',
     'LoadPairedImageFromFile', 'GenerateSoftSeg', 'GenerateSeg', 'PerturbBg',
     'CropAroundFg', 'GetSpatialDiscountMask', 'RandomDownSampling',
     'GenerateTrimapWithDistTransform', 'TransformTrimap',

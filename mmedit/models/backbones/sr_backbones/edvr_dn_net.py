@@ -297,8 +297,8 @@ class TSAFusion(nn.Module):
 
 
 @BACKBONES.register_module()
-class EDVRNet(nn.Module):
-    """EDVR network structure for video super-resolution.
+class EDVRDNNet(nn.Module):
+    """EDVR network structure for video denoise.
 
     Now only support X4 upsampling factor.
     Paper:
@@ -368,16 +368,14 @@ class EDVRNet(nn.Module):
             ResidualBlockNoBN,
             num_blocks_reconstruction,
             mid_channels=mid_channels)
-        # upsample
-        self.upsample1 = PixelShufflePack(
-            mid_channels, mid_channels, 2, upsample_kernel=3)
-        self.upsample2 = PixelShufflePack(
-            mid_channels, 64, 2, upsample_kernel=3)
-        # we fix the output channels in the last few layers to 64.
+        # # upsample
+        # self.upsample1 = PixelShufflePack(
+        #     mid_channels, mid_channels, 2, upsample_kernel=3)
+        # self.upsample2 = PixelShufflePack(
+        #     mid_channels, 64, 2, upsample_kernel=3)
+        # # we fix the output channels in the last few layers to 64.
         self.conv_hr = nn.Conv2d(64, 64, 3, 1, 1)
         self.conv_last = nn.Conv2d(64, out_channels, 3, 1, 1)
-        self.img_upsample = nn.Upsample(
-            scale_factor=4, mode='bilinear', align_corners=False)
         # activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
 
@@ -400,6 +398,7 @@ class EDVRNet(nn.Module):
         # extract LR features
         # L1
         l1_feat = self.lrelu(self.conv_first(x.view(-1, c, h, w)))
+        # (n, t, c, h, w)
         l1_feat = self.feature_extraction(l1_feat)
         # L2
         l2_feat = self.feat_l2_conv2(self.feat_l2_conv1(l1_feat))
@@ -408,7 +407,6 @@ class EDVRNet(nn.Module):
         l1_feat = l1_feat.view(n, t, -1, h, w)
         l2_feat = l2_feat.view(n, t, -1, h // 2, w // 2)
         l3_feat = l3_feat.view(n, t, -1, h // 4, w // 4)
-
         # pcd alignment
         ref_feats = [  # reference feature list
             l1_feat[:, self.center_frame_idx, :, :, :].clone(),
@@ -431,12 +429,9 @@ class EDVRNet(nn.Module):
 
         # reconstruction
         out = self.reconstruction(feat)
-        out = self.lrelu(self.upsample1(out))
-        out = self.lrelu(self.upsample2(out))
         out = self.lrelu(self.conv_hr(out))
         out = self.conv_last(out)
-        base = self.img_upsample(x_center)
-        out += base
+        out += x_center
         return out
 
     def init_weights(self, pretrained=None, strict=True):

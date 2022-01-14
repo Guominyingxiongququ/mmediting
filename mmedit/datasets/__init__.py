@@ -11,6 +11,7 @@ from .generation_paired_dataset import GenerationPairedDataset
 from .generation_unpaired_dataset import GenerationUnpairedDataset
 from .img_inpainting_dataset import ImgInpaintingDataset
 from .registry import DATASETS, PIPELINES
+from .dn_test_dataset import DNTestDataset
 from .sr_annotation_dataset import SRAnnotationDataset
 from .sr_facial_landmark_dataset import SRFacialLandmarkDataset
 from .sr_folder_dataset import SRFolderDataset
@@ -31,7 +32,7 @@ from .dn_crvd_dataset import DNCRVDDataset
 __all__ = [
     'DATASETS', 'PIPELINES', 'build_dataset', 'build_dataloader',
     'BaseDataset', 'BaseMattingDataset', 'ImgInpaintingDataset',
-    'AdobeComp1kDataset', 'SRLmdbDataset', 'SRFolderDataset',
+    'AdobeComp1kDataset', 'DNTestDataset', 'SRLmdbDataset', 'SRFolderDataset',
     'SRAnnotationDataset', 'BaseSRDataset', 'BaseDNDataset', 'RepeatDataset', 'SRREDSDataset',
     'SRVimeo90KDataset', 'BaseGenerationDataset', 'GenerationPairedDataset',
     'GenerationUnpairedDataset', 'SRVid4Dataset', 'SRFolderGTDataset',
