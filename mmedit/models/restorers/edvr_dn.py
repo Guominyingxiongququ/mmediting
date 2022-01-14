@@ -192,7 +192,7 @@ class EDVRDN(BasicRestorer):
             term1 = test_result[:, :, H-patch_w+i, :]
             rate1 = (last_last_range-1-i)/(last_last_range-1)
             term2 = test_horizontal_result[:, :, i, :]
-            rate2 = i/(last_last_range-1)∂
+            rate2 = i/(last_last_range-1)
             test_result[:, :, H-patch_w+i, :] = \
                 term1*rate1+term2*rate2
         cur_result = test_horizontal_result[:, :, last_last_range:, :]
