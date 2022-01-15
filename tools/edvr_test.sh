@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=0,1,2,3 PORT=29500 ./dist_train.sh ../configs/restorers/edvr/edvrm_wotsa_x4_g8_600k_reds.py 4 
+CUDA_VISIBLE_DEVICES=0,1,2,3 PORT=29500 ./dist_train.sh ../configs/restorers/edvr/edvrm_wotsa_crvd.py 4 
