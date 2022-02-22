@@ -4,6 +4,7 @@ from .basicvsr import BasicVSR
 from .dic import DIC
 from .edvr import EDVR
 from .edvr_dn import EDVRDN
+from .basicvsr_dn import BasicVSRDN
 from .esrgan import ESRGAN
 from .glean import GLEAN
 from .liif import LIIF
@@ -15,5 +16,5 @@ from .ttsr import TTSR
 
 __all__ = [
     'BasicRestorer', 'SRGAN', 'ESRGAN', 'EDVR', 'EDVRDN', 'LIIF', 'BasicVSR',
-    'TTSR', 'GLEAN', 'TDAN', 'DIC', 'RealESRGAN', 'RealBasicVSR'
+    'BasicVSRDN', 'TTSR', 'GLEAN', 'TDAN', 'DIC', 'RealESRGAN', 'RealBasicVSR'
 ]

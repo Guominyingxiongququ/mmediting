@@ -16,7 +16,7 @@ from mmedit.utils import get_root_logger
 
 
 @BACKBONES.register_module()
-class BasicVSRPlusPlus(nn.Module):
+class BasicVSRPlusPlusDN(nn.Module):
     """BasicVSR++ network structure.
 
     Support either x4 upsampling or same size output. Since DCN is used in this
@@ -72,6 +72,15 @@ class BasicVSRPlusPlus(nn.Module):
                 nn.Conv2d(mid_channels, mid_channels, 3, 2, 1),
                 nn.LeakyReLU(negative_slope=0.1, inplace=True),
                 ResidualBlocksWithInputConv(mid_channels, mid_channels, 5))
+        
+        self.feat_l2_conv1 = nn.Conv2d(
+             3, mid_channels, 2, 1)
+        self.feat_l2_conv2 = nn.Conv2d(
+             3, mid_channels, 1, 1)
+        self.feat_l3_conv1 = nn.Conv2d(
+             3, mid_channels, 2, 1)
+        self.feat_l3_conv2 = nn.Conv2d(
+             3, mid_channels, 2, 1)
 
         # propagation branches
         self.deform_align = nn.ModuleDict()
@@ -279,12 +288,13 @@ class BasicVSRPlusPlus(nn.Module):
                 hr = hr.cuda()
 
             hr = self.reconstruction(hr)
-            hr = self.lrelu(self.upsample1(hr))
-            hr = self.lrelu(self.upsample2(hr))
+            # hr = self.lrelu(self.upsample1(hr))
+            # hr = self.lrelu(self.upsample2(hr))
             hr = self.lrelu(self.conv_hr(hr))
             hr = self.conv_last(hr)
             if self.is_low_res_input:
-                hr += self.img_upsample(lqs[:, i, :, :, :])
+                # hr += self.img_upsample(lqs[:, i, :, :, :])
+                hr += lqs[:, i, :, :, :]
             else:
                 hr += lqs[:, i, :, :, :]
 
@@ -331,10 +341,16 @@ class BasicVSRPlusPlus(nn.Module):
                 feats['spatial'].append(feat)
                 torch.cuda.empty_cache()
         else:
+            feats['spatial'] = []
             feats_ = self.feat_extract(lqs.view(-1, c, h, w))
             h, w = feats_.shape[2:]
             feats_ = feats_.view(n, t, -1, h, w)
-            feats['spatial'] = [feats_[:, i, :, :, :] for i in range(0, t)]
+            for i in range(0, t):
+                l1_feat = feats_[:, i, :, :, :]
+                l2_feat = self.feat_l2_conv2(self.feat_l2_conv1(l1_feat))
+                l3_feat = self.feat_l3_conv2(self.feat_l3_conv1(l2_feat))
+            feats['spatial'].append([l1_feat, l2_feat, l3_feat])
+            
 
         # compute optical flow using the low-res inputs
         assert lqs_downsample.size(3) >= 64 and lqs_downsample.size(4) >= 64, (
@@ -411,7 +427,7 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
             nn.Conv2d(self.out_channels, self.out_channels, 3, 1, 1),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
-            nn.Conv2d(self.out_channels, 27 * self.deform_groups, 3, 1, 1),
+            nn.Conv2d(self.out_channels, 27 * self.deform_groups + self.out_channels, 3, 1, 1),
         )
 
         self.init_offset()
@@ -422,7 +438,10 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
     def forward(self, x, extra_feat, flow_1, flow_2):
         extra_feat = torch.cat([extra_feat, flow_1, flow_2], dim=1)
         out = self.conv_offset(extra_feat)
-        o1, o2, mask = torch.chunk(out, 3, dim=1)
+        mask2 = out[:,-self.out_channels:,:,:]
+        mask2 = torch.sigmoid(mask2)
+        origin_feat = extra_feat[:, self.out_channels:2*self.out_channels, :, :]
+        o1, o2, mask = torch.chunk(out[:, :-self.out_channels, : ,:], 3, dim=1)
         # offset
         offset = self.max_residue_magnitude * torch.tanh(
             torch.cat((o1, o2), dim=1))
@@ -438,7 +457,9 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
         # mask
         mask = torch.sigmoid(mask)
 
-        return modulated_deform_conv2d(x, offset, mask, self.weight, self.bias,
+        result = modulated_deform_conv2d(x, offset, mask, self.weight, self.bias,
                                        self.stride, self.padding,
                                        self.dilation, self.groups,
                                        self.deform_groups)
+        result = result * (1-mask2) + origin_feat * mask2
+        return result

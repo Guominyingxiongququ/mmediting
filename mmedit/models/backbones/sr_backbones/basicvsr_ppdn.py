@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import warnings
 
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,10 +14,138 @@ from mmedit.models.backbones.sr_backbones.basicvsr_net import (
 from mmedit.models.common import PixelShufflePack, flow_warp
 from mmedit.models.registry import BACKBONES
 from mmedit.utils import get_root_logger
+from .ops.modules import MSDeformAttn, MSDeformAttn_flow
 
+def _get_activation_fn(activation):
+    """Return an activation function given a string"""
+    if activation == "relu":
+        return F.relu
+    if activation == "gelu":
+        return F.gelu
+    if activation == "glu":
+        return F.glu
+    raise RuntimeError(F"activation should be relu/gelu, not {activation}.")
+
+class DeformableTransformerEncoderLayer(nn.Module):
+    def __init__(self,
+                 d_model=256, d_ffn=1024,
+                 dropout=0.1, activation="relu",
+                 n_levels=1, n_heads=8, n_points=4, is_flow=True):
+        super().__init__()
+
+        # self attention
+        if is_flow:
+            self.self_attn = MSDeformAttn_flow(d_model, n_levels, n_heads, n_points)
+        else:
+            self.self_attn = MSDeformAttn(d_model, n_levels, n_heads, n_points)
+        self.dropout1 = nn.Dropout(dropout)
+        if is_flow:
+            self.norm1 = nn.LayerNorm(d_model * 2)
+            self.d_ffn = 8 * d_model
+            self.linear1 = nn.Linear(d_model * 2, d_ffn)
+        else:
+            self.norm1 = nn.LayerNorm(d_model)
+            self.d_ffn = 4 * d_model
+            self.linear1 = nn.Linear(d_model, d_ffn)
+        self.activation = _get_activation_fn(activation)
+        self.dropout2 = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(d_ffn, d_model)
+        self.dropout3 = nn.Dropout(dropout)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.is_flow = is_flow
+        
+
+    @staticmethod
+    def with_pos_embed(tensor, pos):
+        return tensor if pos is None else tensor + pos
+
+    def forward_ffn(self, src):
+        src = self.linear2(self.dropout2(self.activation(self.linear1(src))))
+        if not self.is_flow:
+            src = src + self.dropout3(src)
+            src = self.norm2(src)
+        else:
+            src = self.dropout3(src)
+            src = self.norm2(src)
+        return src
+
+    def forward(self, flatten_denoise, noisy, pos, reference_points, spatial_shapes, level_start_index, flow1, flow2, padding_mask=None):
+        # self attention
+        if self.is_flow:
+            src2 = self.self_attn(self.with_pos_embed(flatten_denoise, pos), reference_points, noisy, spatial_shapes, level_start_index, flow1, flow2, padding_mask)
+        else:
+            src2 = self.self_attn(self.with_pos_embed(flatten_denoise, pos), reference_points, noisy, spatial_shapes, level_start_index, padding_mask)
+        src = self.dropout1(src2)
+        src = self.norm1(src)
+        # ffn
+        src = self.forward_ffn(src)
+        #reshape
+        return src
+
+def _get_clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
+
+class DeformableTransformerEncoder(nn.Module):
+    def __init__(self, d_model, num_layers):
+        super().__init__()
+        layer_list = []
+        for idx in range(num_layers):
+            if idx==0:
+                encoder_layer = DeformableTransformerEncoderLayer(d_model=64, is_flow=True)
+            else:
+                encoder_layer = DeformableTransformerEncoderLayer(d_model=64, is_flow=False)
+            layer_list.append(encoder_layer)
+        self.layers = nn.ModuleList(layer_list)
+        self.num_layers = num_layers
+        # self.layer = encoder_layer
+
+    @staticmethod
+    def get_reference_points(spatial_shapes, valid_ratios, device):
+        reference_points_list = []
+        for lvl, (H_, W_) in enumerate(spatial_shapes):
+
+            ref_y, ref_x = torch.meshgrid(torch.linspace(0.5, H_ - 0.5, H_, dtype=torch.float32, device=device),
+                                          torch.linspace(0.5, W_ - 0.5, W_, dtype=torch.float32, device=device))
+            ref_y = ref_y.reshape(-1)[None] / (valid_ratios[:, None, lvl, 1] * H_)
+            ref_x = ref_x.reshape(-1)[None] / (valid_ratios[:, None, lvl, 0] * W_)
+            ref = torch.stack((ref_x, ref_y), -1)
+            reference_points_list.append(ref)
+        reference_points = torch.cat(reference_points_list, 1)
+        reference_points = reference_points[:, :, None] * valid_ratios[:, None]
+        return reference_points
+    
+    # def forward(self, ref_denoise, target_denoise, ref_noise):
+    def forward(self, x, cond, flow1, flow2):
+        # flatten
+        # get spatial_shapes
+        # x: batch_size, 128, 256, 266
+        # cond: batch_size, 192, 256, 256
+        # flow1: batch_size, 2, 256, 256
+        # flow2: batch_size, 2, 256, 256
+        # src: batch_size, 128, 256, 256
+        
+        n,c,h,w = x.shape
+        spatial_shapes = torch.as_tensor([[h, w]]).cuda()
+        valid_ratios = torch.as_tensor([[[1.0, 1.0]]]).cuda()
+        pos=None
+        # get level_start_index,
+        # get mask padding mask, pos, valid_ratios
+        reference_points = self.get_reference_points(spatial_shapes, valid_ratios, device=x.device)
+        level_start_index = torch.as_tensor([0]).cuda()
+        cond =  cond.flatten(2).transpose(1, 2) # batch_size, 256*256, 192
+        src =   x.flatten(2).transpose(1, 2) # batch_size, 256*256, 128
+        ori_feature = torch.chunk(cond, 3, dim=2)[1]
+
+        for _, layer in enumerate(self.layers):
+            src= layer(cond, src, pos, reference_points, spatial_shapes, level_start_index, flow1, flow2, padding_mask=None)
+            # output: (batch_size, 256*256, 64)
+            cond = torch.cat((src, ori_feature), 2)
+
+        src= src.transpose(1, 2).reshape(1, -1, h, w)
+        return src
 
 @BACKBONES.register_module()
-class BasicVSRPlusPlus(nn.Module):
+class BasicVSRPlusPlusDN(nn.Module):
     """BasicVSR++ network structure.
 
     Support either x4 upsampling or same size output. Since DCN is used in this
@@ -74,32 +203,37 @@ class BasicVSRPlusPlus(nn.Module):
                 ResidualBlocksWithInputConv(mid_channels, mid_channels, 5))
 
         # propagation branches
-        self.deform_align = nn.ModuleDict()
+        # self.attn =MSDeformAttn(1, 2, 3, 4)
+        self.deform_trans = nn.ModuleDict()
         self.backbone = nn.ModuleDict()
-        modules = ['backward_1', 'forward_1', 'backward_2', 'forward_2']
+        # modules = ['backward_1', 'forward_1', 'backward_2', 'forward_2']
+        modules = ['backward_1', 'forward_1']
+        # modules = ['backward_1']
         for i, module in enumerate(modules):
             if torch.cuda.is_available():
-                self.deform_align[module] = SecondOrderDeformableAlignment(
-                    2 * mid_channels,
-                    mid_channels,
-                    3,
-                    padding=1,
-                    deform_groups=16,
-                    max_residue_magnitude=max_residue_magnitude)
+                # self.attn = MSDeformAttn()
+                self.deform_trans[module] = DeformableTransformerEncoder(d_model = 64, num_layers = 2)
+                # SecondOrderDeformableAlignment(
+                #     2 * mid_channels,
+                #     mid_channels,
+                #     3,
+                #     padding=1,
+                #     deform_groups=16,
+                #     max_residue_magnitude=max_residue_magnitude)
             self.backbone[module] = ResidualBlocksWithInputConv(
                 (2 + i) * mid_channels, mid_channels, num_blocks)
 
         # upsampling module
         self.reconstruction = ResidualBlocksWithInputConv(
-            5 * mid_channels, mid_channels, 5)
-        self.upsample1 = PixelShufflePack(
-            mid_channels, mid_channels, 2, upsample_kernel=3)
-        self.upsample2 = PixelShufflePack(
-            mid_channels, 64, 2, upsample_kernel=3)
+            3 * mid_channels, mid_channels, 5)
+        # self.upsample1 = PixelShufflePack(
+        #     mid_channels, mid_channels, 2, upsample_kernel=3)
+        # self.upsample2 = PixelShufflePack(
+        #     mid_channels, 64, 2, upsample_kernel=3)
         self.conv_hr = nn.Conv2d(64, 64, 3, 1, 1)
         self.conv_last = nn.Conv2d(64, 3, 3, 1, 1)
-        self.img_upsample = nn.Upsample(
-            scale_factor=4, mode='bilinear', align_corners=False)
+        # self.img_upsample = nn.Upsample(
+        #     scale_factor=4, mode='bilinear', align_corners=False)
 
         # activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
@@ -107,7 +241,7 @@ class BasicVSRPlusPlus(nn.Module):
         # check if the sequence is augmented by flipping
         self.is_mirror_extended = False
 
-        if len(self.deform_align) > 0:
+        if len(self.deform_trans) > 0:
             self.is_with_alignment = True
         else:
             self.is_with_alignment = False
@@ -181,7 +315,6 @@ class BasicVSRPlusPlus(nn.Module):
                 features. Each key in the dictionary corresponds to a
                 propagation branch, which is represented by a list of tensors.
         """
-
         n, t, _, h, w = flows.size()
 
         frame_idx = range(0, t + 1)
@@ -212,6 +345,8 @@ class BasicVSRPlusPlus(nn.Module):
                 flow_n2 = torch.zeros_like(flow_n1)
                 cond_n2 = torch.zeros_like(cond_n1)
 
+                # if i >= 1:
+                #     feat_n1 = feats[module_name][-1]
                 if i > 1:  # second-order features
                     feat_n2 = feats[module_name][-2]
                     if self.cpu_cache:
@@ -227,8 +362,12 @@ class BasicVSRPlusPlus(nn.Module):
 
                 # flow-guided deformable convolution
                 cond = torch.cat([cond_n1, feat_current, cond_n2], dim=1)
+                # feat_prop = torch.cat([feat_prop, feat_n2], dim=1)
                 feat_prop = torch.cat([feat_prop, feat_n2], dim=1)
-                feat_prop = self.deform_align[module_name](feat_prop, cond,
+                
+                # feat_prop shape mid_channel
+                # cond shape mid_channle * 3
+                feat_prop = self.deform_trans[module_name](feat_prop, cond,
                                                            flow_n1, flow_n2)
 
             # concatenate and residual blocks
@@ -279,12 +418,13 @@ class BasicVSRPlusPlus(nn.Module):
                 hr = hr.cuda()
 
             hr = self.reconstruction(hr)
-            hr = self.lrelu(self.upsample1(hr))
-            hr = self.lrelu(self.upsample2(hr))
+            # hr = self.lrelu(self.upsample1(hr))
+            # hr = self.lrelu(self.upsample2(hr))
             hr = self.lrelu(self.conv_hr(hr))
             hr = self.conv_last(hr)
             if self.is_low_res_input:
-                hr += self.img_upsample(lqs[:, i, :, :, :])
+                # hr += self.img_upsample(lqs[:, i, :, :, :])
+                hr += lqs[:, i, :, :, :]
             else:
                 hr += lqs[:, i, :, :, :]
 
@@ -343,8 +483,10 @@ class BasicVSRPlusPlus(nn.Module):
         flows_forward, flows_backward = self.compute_flow(lqs_downsample)
 
         # feature propgation
-        for iter_ in [1, 2]:
+        # for iter_ in [1, 2]:
+        for iter_ in [1]:
             for direction in ['backward', 'forward']:
+            # for direction in ['backward']:
                 module = f'{direction}_{iter_}'
 
                 feats[module] = []
@@ -420,25 +562,58 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
         constant_init(self.conv_offset[-1], val=0, bias=0)
 
     def forward(self, x, extra_feat, flow_1, flow_2):
-        extra_feat = torch.cat([extra_feat, flow_1, flow_2], dim=1)
-        out = self.conv_offset(extra_feat)
-        o1, o2, mask = torch.chunk(out, 3, dim=1)
-        # offset
-        offset = self.max_residue_magnitude * torch.tanh(
-            torch.cat((o1, o2), dim=1))
-        offset_1, offset_2 = torch.chunk(offset, 2, dim=1)
-        offset_1 = offset_1 + flow_1.flip(1).repeat(1,
-                                                    offset_1.size(1) // 2, 1,
-                                                    1)
-        offset_2 = offset_2 + flow_2.flip(1).repeat(1,
-                                                    offset_2.size(1) // 2, 1,
-                                                    1)
-        offset = torch.cat([offset_1, offset_2], dim=1)
+        origin=True
+        if origin:
+            extra_feat = torch.cat([extra_feat, flow_1, flow_2], dim=1)
+            out = self.conv_offset(extra_feat)
+            o1, o2, mask = torch.chunk(out, 3, dim=1)
 
-        # mask
-        mask = torch.sigmoid(mask)
+            # offset
+            offset = self.max_residue_magnitude * torch.tanh(
+                torch.cat((o1, o2), dim=1))
+            # width, height
+            offset_1, offset_2 = torch.chunk(offset, 2, dim=1)
+            offset_1 = offset_1 + flow_1.flip(1).repeat(1,
+                                                        offset_1.size(1) // 2, 1,
+                                                        1)
+            offset_2 = offset_2 + flow_2.flip(1).repeat(1,
+                                                        offset_2.size(1) // 2, 1,
+                                                        1)
+            # flow_1, flow_2 (h, w)
+            offset = torch.cat([offset_1, offset_2], dim=1)
 
-        return modulated_deform_conv2d(x, offset, mask, self.weight, self.bias,
-                                       self.stride, self.padding,
-                                       self.dilation, self.groups,
-                                       self.deform_groups)
+            # mask
+            mask = torch.sigmoid(mask)
+            # self.deform_groups  = 16
+            # offset = 288
+            # mask = 144
+            return modulated_deform_conv2d(x, offset, mask, self.weight, self.bias,
+                                        self.stride, self.padding,
+                                        self.dilation, self.groups,
+                                        self.deform_groups)
+        else:
+            extra_feat = torch.cat([extra_feat, flow_1, flow_2], dim=1)
+            out = self.conv_offset(extra_feat)
+            o1, o2, mask = torch.chunk(out, 3, dim=1)
+
+            # offset
+            offset = self.max_residue_magnitude * torch.tanh(
+                torch.cat((o1, o2), dim=1))
+            # width, height
+            offset_1, offset_2 = torch.chunk(offset, 2, dim=1)
+            offset_1 = offset_1 + flow_1.flip(1).repeat(1,
+                                                        offset_1.size(1) // 2, 1,
+                                                        1)
+            offset_2 = offset_2 + flow_2.flip(1).repeat(1,
+                                                        offset_2.size(1) // 2, 1,
+                                                        1)
+            # flow_1, flow_2 (h, w)
+            offset = torch.cat([offset_1, offset_2], dim=1)
+
+            # mask
+            mask = torch.sigmoid(mask)
+
+            return modulated_deform_conv2d(x, offset, mask, self.weight, self.bias,
+                                        self.stride, self.padding,
+                                        self.dilation, self.groups,
+                                        self.deform_groups)

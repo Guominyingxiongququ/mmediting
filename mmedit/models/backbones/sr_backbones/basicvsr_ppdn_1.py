@@ -14,9 +14,8 @@ from mmedit.models.common import PixelShufflePack, flow_warp
 from mmedit.models.registry import BACKBONES
 from mmedit.utils import get_root_logger
 
-
 @BACKBONES.register_module()
-class BasicVSRPlusPlus(nn.Module):
+class BasicVSRPlusPlusDN1(nn.Module):
     """BasicVSR++ network structure.
 
     Support either x4 upsampling or same size output. Since DCN is used in this
@@ -75,7 +74,9 @@ class BasicVSRPlusPlus(nn.Module):
 
         # propagation branches
         self.deform_align = nn.ModuleDict()
-        self.backbone = nn.ModuleDict()
+        self.backbone_1 = nn.ModuleDict()
+        self.backbone_2 = nn.ModuleDict()
+        self.prop_merge = nn.ModuleDict()
         modules = ['backward_1', 'forward_1', 'backward_2', 'forward_2']
         for i, module in enumerate(modules):
             if torch.cuda.is_available():
@@ -86,20 +87,27 @@ class BasicVSRPlusPlus(nn.Module):
                     padding=1,
                     deform_groups=16,
                     max_residue_magnitude=max_residue_magnitude)
-            self.backbone[module] = ResidualBlocksWithInputConv(
-                (2 + i) * mid_channels, mid_channels, num_blocks)
-
+            self.backbone_1[module] = ResidualBlocksWithInputConv(
+                (3 + i) * mid_channels, mid_channels, num_blocks)
+            self.backbone_2[module] = ResidualBlocksWithInputConv(
+                (3 + i) * mid_channels, mid_channels, num_blocks)
+            self.prop_merge[module] = nn.Sequential(
+                nn.Conv2d(2*mid_channels, mid_channels, 3, 1, 1),
+                nn.LeakyReLU(negative_slope=0.1, inplace=True),
+                nn.Conv2d(mid_channels, mid_channels, 3, 1, 1),
+                nn.LeakyReLU(negative_slope=0.1, inplace=True),
+            )
         # upsampling module
         self.reconstruction = ResidualBlocksWithInputConv(
             5 * mid_channels, mid_channels, 5)
-        self.upsample1 = PixelShufflePack(
-            mid_channels, mid_channels, 2, upsample_kernel=3)
-        self.upsample2 = PixelShufflePack(
-            mid_channels, 64, 2, upsample_kernel=3)
+        # self.upsample1 = PixelShufflePack(
+        #     mid_channels, mid_channels, 2, upsample_kernel=3)
+        # self.upsample2 = PixelShufflePack(
+        #     mid_channels, 64, 2, upsample_kernel=3)
         self.conv_hr = nn.Conv2d(64, 64, 3, 1, 1)
         self.conv_last = nn.Conv2d(64, 3, 3, 1, 1)
-        self.img_upsample = nn.Upsample(
-            scale_factor=4, mode='bilinear', align_corners=False)
+        # self.img_upsample = nn.Upsample(
+        #     scale_factor=4, mode='bilinear', align_corners=False)
 
         # activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
@@ -193,25 +201,27 @@ class BasicVSRPlusPlus(nn.Module):
             frame_idx = frame_idx[::-1]
             flow_idx = frame_idx
 
-        feat_prop = flows.new_zeros(n, self.mid_channels, h, w)
+        feat_prop_n1 = flows.new_zeros(n, self.mid_channels, h, w)
+        feat_prop_n2 = flows.new_zeros(n, self.mid_channels, h, w)
         for i, idx in enumerate(frame_idx):
             feat_current = feats['spatial'][mapping_idx[idx]]
             if self.cpu_cache:
                 feat_current = feat_current.cuda()
-                feat_prop = feat_prop.cuda()
             # second-order deformable alignment
             if i > 0 and self.is_with_alignment:
                 flow_n1 = flows[:, flow_idx[i], :, :, :]
                 if self.cpu_cache:
                     flow_n1 = flow_n1.cuda()
-
-                cond_n1 = flow_warp(feat_prop, flow_n1.permute(0, 2, 3, 1))
-
+                
+                feat_n1 = torch.zeros_like(feat_prop_n1)
+                cond_n1 = flow_warp(feat_n1, flow_n1.permute(0, 2, 3, 1))
                 # initialize second-order features
-                feat_n2 = torch.zeros_like(feat_prop)
+                feat_n2 = torch.zeros_like(feat_prop_n2)
                 flow_n2 = torch.zeros_like(flow_n1)
                 cond_n2 = torch.zeros_like(cond_n1)
 
+                # if i >= 1:
+                #     feat_n1 = feats[module_name][-1]
                 if i > 1:  # second-order features
                     feat_n2 = feats[module_name][-2]
                     if self.cpu_cache:
@@ -227,21 +237,26 @@ class BasicVSRPlusPlus(nn.Module):
 
                 # flow-guided deformable convolution
                 cond = torch.cat([cond_n1, feat_current, cond_n2], dim=1)
-                feat_prop = torch.cat([feat_prop, feat_n2], dim=1)
-                feat_prop = self.deform_align[module_name](feat_prop, cond,
+                # feat_prop = torch.cat([feat_prop, feat_n2], dim=1)
+                feat_prop_n1 = torch.cat([feat_prop_n1, feat_n1], dim=1)
+                feat_prop_n2 = torch.cat([feat_prop_n2, feat_n2], dim=1)
+                feat_prop_n1, feat_prop_n2 = self.deform_align[module_name]((feat_prop_n1, feat_prop_n2), cond,
                                                            flow_n1, flow_n2)
 
             # concatenate and residual blocks
             feat = [feat_current] + [
                 feats[k][idx]
                 for k in feats if k not in ['spatial', module_name]
-            ] + [feat_prop]
+            ] + [feat_prop_n1] + [feat_prop_n2]
             if self.cpu_cache:
                 feat = [f.cuda() for f in feat]
 
             feat = torch.cat(feat, dim=1)
-            feat_prop = feat_prop + self.backbone[module_name](feat)
-            feats[module_name].append(feat_prop)
+            feat_prop_n1 = feat_prop_n1 + self.backbone_1[module_name](feat)
+            feat_prop_n2 = feat_prop_n2 + self.backbone_2[module_name](feat)
+            feat_prop_merge = torch.cat([feat_prop_n1, feat_prop_n2], dim=1)
+            feat_prop_merge = self.prop_merge[module_name](feat_prop_merge)
+            feats[module_name].append(feat_prop_merge)
 
             if self.cpu_cache:
                 feats[module_name][-1] = feats[module_name][-1].cpu()
@@ -279,12 +294,13 @@ class BasicVSRPlusPlus(nn.Module):
                 hr = hr.cuda()
 
             hr = self.reconstruction(hr)
-            hr = self.lrelu(self.upsample1(hr))
-            hr = self.lrelu(self.upsample2(hr))
+            # hr = self.lrelu(self.upsample1(hr))
+            # hr = self.lrelu(self.upsample2(hr))
             hr = self.lrelu(self.conv_hr(hr))
             hr = self.conv_last(hr)
             if self.is_low_res_input:
-                hr += self.img_upsample(lqs[:, i, :, :, :])
+                # hr += self.img_upsample(lqs[:, i, :, :, :])
+                hr += lqs[:, i, :, :, :]
             else:
                 hr += lqs[:, i, :, :, :]
 
@@ -403,7 +419,7 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
         self.max_residue_magnitude = kwargs.pop('max_residue_magnitude', 10)
 
         super(SecondOrderDeformableAlignment, self).__init__(*args, **kwargs)
-
+        channel_num = 27
         self.conv_offset = nn.Sequential(
             nn.Conv2d(3 * self.out_channels + 4, self.out_channels, 3, 1, 1),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
@@ -411,34 +427,78 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
             nn.Conv2d(self.out_channels, self.out_channels, 3, 1, 1),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
-            nn.Conv2d(self.out_channels, 27 * self.deform_groups, 3, 1, 1),
+            nn.Conv2d(self.out_channels, channel_num * self.deform_groups, 3, 1, 1),
         )
-
+        # self.deform_groups = 8
         self.init_offset()
 
     def init_offset(self):
         constant_init(self.conv_offset[-1], val=0, bias=0)
 
     def forward(self, x, extra_feat, flow_1, flow_2):
-        extra_feat = torch.cat([extra_feat, flow_1, flow_2], dim=1)
-        out = self.conv_offset(extra_feat)
-        o1, o2, mask = torch.chunk(out, 3, dim=1)
-        # offset
-        offset = self.max_residue_magnitude * torch.tanh(
-            torch.cat((o1, o2), dim=1))
-        offset_1, offset_2 = torch.chunk(offset, 2, dim=1)
-        offset_1 = offset_1 + flow_1.flip(1).repeat(1,
-                                                    offset_1.size(1) // 2, 1,
-                                                    1)
-        offset_2 = offset_2 + flow_2.flip(1).repeat(1,
-                                                    offset_2.size(1) // 2, 1,
-                                                    1)
-        offset = torch.cat([offset_1, offset_2], dim=1)
+        origin=False
+        if origin:
+            extra_feat = torch.cat([extra_feat, flow_1, flow_2], dim=1)
+            out = self.conv_offset(extra_feat)
+            o1, o2, mask = torch.chunk(out, 3, dim=1)
 
-        # mask
-        mask = torch.sigmoid(mask)
+            # offset
+            offset = self.max_residue_magnitude * torch.tanh(
+                torch.cat((o1, o2), dim=1))
+            # width, height
+            offset_1, offset_2 = torch.chunk(offset, 2, dim=1)
+            offset_1 = offset_1 + flow_1.flip(1).repeat(1,
+                                                        offset_1.size(1) // 2, 1,
+                                                        1)
+            offset_2 = offset_2 + flow_2.flip(1).repeat(1,
+                                                        offset_2.size(1) // 2, 1,
+                                                        1)
+            # flow_1, flow_2 (h, w)
+            offset = torch.cat([offset_1, offset_2], dim=1)
 
-        return modulated_deform_conv2d(x, offset, mask, self.weight, self.bias,
-                                       self.stride, self.padding,
-                                       self.dilation, self.groups,
-                                       self.deform_groups)
+            # mask
+            mask = torch.sigmoid(mask)
+
+            return modulated_deform_conv2d(x, offset, mask, self.weight, self.bias,
+                                        self.stride, self.padding,
+                                        self.dilation, self.groups,
+                                        self.deform_groups)
+        else:
+            feat_n1 = x[0]
+            feat_n2 = x[1]
+            extra_feat = torch.cat([extra_feat, flow_1, flow_2], dim=1)
+            out = self.conv_offset(extra_feat)
+            o1, o2, mask= torch.chunk(out, 3, dim=1)
+            mask_1, mask_2 = torch.chunk(mask, 2, dim=1)
+
+            # offset
+            offset = self.max_residue_magnitude * torch.tanh(
+                torch.cat((o1, o2), dim=1))
+            # width, height
+            offset_1, offset_2 = torch.chunk(offset, 2, dim=1)
+            offset_1 = offset_1 + flow_1.flip(1).repeat(1,
+                                                        offset_1.size(1) // 2, 1,
+                                                        1)
+            offset_2 = offset_2 + flow_2.flip(1).repeat(1,
+                                                        offset_2.size(1) // 2, 1,
+                                                        1)
+            # flow_1, flow_2 (h, w)
+            # offset = torch.cat([offset_1, offset_2], dim=1)
+
+            # mask
+            # import pdb
+            # pdb.set_trace()
+            mask_1 = torch.sigmoid(mask_1)
+            mask_2 = torch.sigmoid(mask_2)
+            import pdb
+            pdb.set_trace()
+            feat_n1 = modulated_deform_conv2d(feat_n1, offset_1, mask_1, self.weight, self.bias,
+                                        self.stride, self.padding,
+                                        self.dilation, self.groups,
+                                        int(self.deform_groups/2))
+            feat_n2 = modulated_deform_conv2d(feat_n2, offset_2, mask_2, self.weight, self.bias,
+                                        self.stride, self.padding,
+                                        self.dilation, self.groups,
+                                        int(self.deform_groups/2))
+            return feat_n1, feat_n2
+

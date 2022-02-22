@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import ConvModule
 from mmcv.runner import load_checkpoint
-from mmcv.runner import load_state_dict
 
 from mmedit.models.common import (PixelShufflePack, ResidualBlockNoBN,
                                   flow_warp, make_layer)
@@ -13,31 +12,31 @@ from mmedit.utils import get_root_logger
 
 
 @BACKBONES.register_module()
-class BasicVSRNet(nn.Module):
-    """BasicVSR network structure for video super-resolution.
+class BasicVSRDNNet(nn.Module):
+    """BasicVSR denoise network structure for video denoise.
 
     Support only x4 upsampling.
     Paper:
-        BasicVSR: The Search for Essential Components in Video Super-Resolution
-        and Beyond, CVPR, 2021
+        BasicVSRDN: The Search for Essential Components in Video Denoise
 
     Args:
         mid_channels (int): Channel number of the intermediate features.
             Default: 64.
-        num_blocks (int): Number of residual blocks in each propagation branch.
+        num_blocks (int): Number of residual blocks in each propagation ////branch.
             Default: 30.
         spynet_pretrained (str): Pre-trained model path of SPyNet.
             Default: None.
     """
 
-    def __init__(self, mid_channels=64, num_blocks=30, spynet_pretrained=None, predenoise=None):
+    def __init__(self, mid_channels=64, num_blocks=30, spynet_pretrained=None):
 
         super().__init__()
 
         self.mid_channels = mid_channels
-        self.predenoise = predenoise
+
         # optical flow network for feature alignment
         self.spynet = SPyNet(pretrained=spynet_pretrained)
+
         # propagation branches
         self.backward_resblocks = ResidualBlocksWithInputConv(
             mid_channels + 3, mid_channels, num_blocks)
@@ -47,14 +46,14 @@ class BasicVSRNet(nn.Module):
         # upsample
         self.fusion = nn.Conv2d(
             mid_channels * 2, mid_channels, 1, 1, 0, bias=True)
-        self.upsample1 = PixelShufflePack(
-            mid_channels, mid_channels, 2, upsample_kernel=3)
-        self.upsample2 = PixelShufflePack(
-            mid_channels, 64, 2, upsample_kernel=3)
+        # self.upsample1 = PixelShufflePack(
+        #     mid_channels, mid_channels, 2, upsample_kernel=3)
+        # self.upsample2 = PixelShufflePack(
+        #     mid_channels, 64, 2, upsample_kernel=3)
         self.conv_hr = nn.Conv2d(64, 64, 3, 1, 1)
         self.conv_last = nn.Conv2d(64, 3, 3, 1, 1)
-        self.img_upsample = nn.Upsample(
-            scale_factor=4, mode='bilinear', align_corners=False)
+        # self.img_upsample = nn.Upsample(
+        #     scale_factor=4, mode='bilinear', align_corners=False)
 
         # activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
@@ -156,12 +155,12 @@ class BasicVSRNet(nn.Module):
             # upsampling given the backward and forward features
             out = torch.cat([outputs[i], feat_prop], dim=1)
             out = self.lrelu(self.fusion(out))
-            out = self.lrelu(self.upsample1(out))
-            out = self.lrelu(self.upsample2(out))
+            # out = self.lrelu(self.upsample1(out))
+            # out = self.lrelu(self.upsample2(out))
             out = self.lrelu(self.conv_hr(out))
             out = self.conv_last(out)
-            base = self.img_upsample(lr_curr)
-            out += base
+            # base = self.img_upsample(lr_curr)
+            out += lr_curr
             outputs[i] = out
 
         return torch.stack(outputs, dim=1)
@@ -245,8 +244,6 @@ class SPyNet(nn.Module):
         if isinstance(pretrained, str):
             logger = get_root_logger()
             load_checkpoint(self, pretrained, strict=True, logger=logger)
-            # state_dict = torch.load(pretrained)
-            # load_state_dict(self, state_dict)
         elif pretrained is not None:
             raise TypeError('[pretrained] should be str or None, '
                             f'but got {type(pretrained)}.')
